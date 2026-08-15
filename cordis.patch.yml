@@ -1,0 +1,12 @@
+# dsh-go-usage bundle patch
+#
+# Installed through the official CLI:
+#
+#   dsh plugin --profile <name> add <local checkout path>
+#
+# — which appends `dsh-go-usage` to the profile bundle stack and applies
+# this patch (one inserted plugin row). The row's `name` resolves the package
+# by name inside the profile node_modules.
+- insert:
+    - id: go-usage
+      name: 'dsh-go-usage'

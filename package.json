@@ -1,0 +1,86 @@
+{
+  "name": "dsh-go-usage",
+  "version": "0.1.0",
+  "description": "OpenCode GO subscription usage corner widget for DeepSeek Harness: rolling/weekly/monthly usage with reset countdowns, collapsible to a right-edge tab",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "packageManager": "pnpm@11.7.0",
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shsr07/dsh-go-usage.git"
+  },
+  "homepage": "https://github.com/shsr07/dsh-go-usage#readme",
+  "bugs": {
+    "url": "https://github.com/shsr07/dsh-go-usage/issues"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek",
+    "deepseek-harness",
+    "opencode",
+    "go",
+    "usage",
+    "cordis"
+  ],
+  "files": [
+    "lib",
+    "src",
+    "cordis.patch.yml",
+    "tsdown.config.ts",
+    "tsconfig.json",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.1.0",
+    "@types/node": "22.20.0",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "jsdom": "25.0.1",
+    "lightningcss": "1.32.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tsdown": "0.22.2",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepare": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-locale"
+      ],
+      "platform": "web"
+    }
+  }
+}
