@@ -21,9 +21,7 @@
 - DeepSeek Harness (`dsh`) installed — `npm install -g @deepseek-ai/dsh`
 - An [OpenCode](https://opencode.ai) account with an active **GO** subscription
 - The `opencode-go` API key present in the local opencode auth file (set up by the OpenCode CLI):
-
-  - Windows: `%USERPROFILE%\.local\share\opencode\auth.json`
-  - macOS / Linux: `~/.local/share/opencode/auth.json`
+  `%USERPROFILE%\.local\share\opencode\auth.json`
 
 ### From npm
 

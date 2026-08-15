@@ -21,9 +21,7 @@
 - 已安装 DeepSeek Harness（`dsh`）—— `npm install -g @deepseek-ai/dsh`
 - 拥有 [OpenCode](https://opencode.ai) 账号且已开通 **GO** 订阅
 - 本地 opencode auth 文件中存在 `opencode-go` API key（由 OpenCode CLI 生成）：
-
-  - Windows：`%USERPROFILE%\.local\share\opencode\auth.json`
-  - macOS / Linux：`~/.local/share/opencode/auth.json`
+  `%USERPROFILE%\.local\share\opencode\auth.json`
 
 ### 从 npm 安装
 
