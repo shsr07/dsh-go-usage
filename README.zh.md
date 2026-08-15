@@ -6,7 +6,7 @@
 
 ## 功能
 
-- **三个用量桶** —— 滚动 / 每周 / 每月，与 OpenCode 控制台页面一致。
+- **三个用量条** —— 滚动 / 每周 / 每月，与 OpenCode 控制台页面一致。
 - **进度条** —— 达到 80% 变黄、100%（限流）变红。
 - **实时倒计时** —— 「重置于 X 天 X 小时 / X 小时 X 分钟」，每 15 秒刷新。
 - **自动刷新** —— 每 60 秒重新拉取；↻ 按钮手动刷新。
@@ -65,4 +65,4 @@ dsh plugin --profile web add link:<本仓库绝对路径>
 
 ## License
 
-MIT
+[MIT](https://github.com/shsr07/dsh-go-usage/blob/main/LICENSE)

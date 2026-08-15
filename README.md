@@ -65,4 +65,4 @@ Restart the web service (`dsh web`), then look at the **bottom-right corner** of
 
 ## License
 
-MIT
+[MIT](https://github.com/shsr07/dsh-go-usage/blob/main/LICENSE)
