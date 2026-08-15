@@ -8,7 +8,7 @@
 
 - **Three usage buckets** — rolling / weekly / monthly, matching the OpenCode console page.
 - **Progress bars** — color shifts to amber at 80% and red at 100% (rate-limited).
-- **Live countdowns** — "重置于 X 天 X 小时 / X 小时 X 分钟" ticking every 15 seconds.
+- **Live countdowns** — "Resets in X days X hours / X hours X minutes" ticking every 15 seconds.
 - **Auto refresh** — re-fetches every 60 seconds; the ↻ button refreshes manually.
 - **Collapsible** — the » button collapses the card into a slim right-edge tab; click the tab to expand.
 - **Theme-aware** — follows the DSH theme: pure white in light mode, pure black in dark mode.
