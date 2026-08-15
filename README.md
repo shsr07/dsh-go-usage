@@ -60,7 +60,7 @@ Restart the web service (`dsh web`), then look at the **bottom-right corner** of
 
 ## Requirements
 
-- Windows host (the fetch runs `powershell.exe`).
+- Windows only (usage data is fetched via `powershell.exe`).
 - Node.js >= 24, pnpm.
 
 ## License

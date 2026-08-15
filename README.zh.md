@@ -60,7 +60,7 @@ dsh plugin --profile web add link:<本仓库绝对路径>
 
 ## 要求
 
-- Windows 宿主（取数运行 `powershell.exe`）。
+- 仅支持 Windows（用量数据通过 `powershell.exe` 获取）。
 - Node.js >= 24，pnpm。
 
 ## License
