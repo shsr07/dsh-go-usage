@@ -4,6 +4,8 @@
 
 **dsh-go-usage** is a [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) web plugin that shows your [OpenCode](https://opencode.ai) **GO** subscription usage as a bottom-right corner widget: rolling / weekly / monthly usage percentages with reset countdowns, collapsible to a right-edge vertical tab.
 
+**dsh-go-usage** 是 [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) 的 Web 插件：在页面右下角以角标组件显示你的 [OpenCode](https://opencode.ai) **GO** 套餐用量——滚动 / 每周 / 每月用量百分比与重置倒计时，可收起为右边缘竖条标签。
+
 ## Features
 
 - **Three usage buckets** — rolling / weekly / monthly, matching the OpenCode console page.
