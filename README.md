@@ -14,6 +14,11 @@
 - **Theme-aware** — follows the DSH theme: pure white in light mode, pure black in dark mode.
 - **Bilingual** — copy follows the DSH locale setting: Chinese (滚动用量 / 重置于 X 天 X 小时) or English (Rolling usage / Resets in X days X hours), switching live.
 
+## Requirements
+
+- Windows only (usage data is fetched via `powershell.exe`).
+- Node.js >= 24, pnpm.
+
 ## Installation
 
 ### Prerequisites
@@ -55,11 +60,6 @@ Restart the web service (`dsh web`), then look at the **bottom-right corner** of
 
 - The API key stays on your machine: it is read from your local `auth.json` by the host process and never leaves it.
 - Only the three usage percentages and reset timestamps are displayed; nothing is sent anywhere except the request to `opencode.ai` itself.
-
-## Requirements
-
-- Windows only (usage data is fetched via `powershell.exe`).
-- Node.js >= 24, pnpm.
 
 ## License
 

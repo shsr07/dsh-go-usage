@@ -14,6 +14,11 @@
 - **跟随主题** —— 与 DSH 主题一致：浅色模式纯白，深色模式纯黑。
 - **双语** —— 文案跟随 DSH 语言设置：中文（滚动用量 / 重置于 X 天 X 小时）或英文（Rolling usage / Resets in X days X hours），切换即时生效。
 
+## 要求
+
+- 仅支持 Windows（用量数据通过 `powershell.exe` 获取）。
+- Node.js >= 24，pnpm。
+
 ## 安装
 
 ### 前置条件
@@ -55,11 +60,6 @@ dsh plugin --profile web add link:<本仓库绝对路径>
 
 - API key 只留在本机：由 host 进程从你的本地 `auth.json` 读取，不会离开机器。
 - 只展示三个用量百分比和重置时间戳；除对 `opencode.ai` 自身的请求外，不向任何地方发送数据。
-
-## 要求
-
-- 仅支持 Windows（用量数据通过 `powershell.exe` 获取）。
-- Node.js >= 24，pnpm。
 
 ## License
 
