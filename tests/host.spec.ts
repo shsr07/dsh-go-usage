@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { buildUsageCommand, fetchGoUsage, runUsageFetch } from '../src/fetch.ts'
-import type { GoUsageSubprocess } from '../src/fetch.ts'
+import type { GoUsageFetchOptions, GoUsageSubprocess } from '../src/fetch.ts'
 import { isTrustedApiRequest } from '../src/trust-fence.ts'
 import { writeError, writeJson } from '../src/wire.ts'
+import { resolveFetchOptions } from '../src/index.ts'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 const USAGE_JSON = JSON.stringify({
@@ -12,6 +13,17 @@ const USAGE_JSON = JSON.stringify({
     monthly: { status: 'rate-limited', percent: 100, resetsAt: '2026-09-14T04:39:32.401Z' },
   },
 })
+
+/** Default fetch options for tests. */
+function options(overrides: Partial<GoUsageFetchOptions> = {}): GoUsageFetchOptions {
+  return {
+    authJsonPath: 'C:\\Users\\me\\.local\\share\\opencode\\auth.json',
+    apiUrl: 'https://opencode.ai/zen/go/v1/usage',
+    powershellExe: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+    timeoutSec: 15,
+    ...overrides,
+  }
+}
 
 /** Minimal collected reader. */
 function reader(text: string) {
@@ -34,7 +46,7 @@ function req(host: string): IncomingMessage {
 
 describe('buildUsageCommand', () => {
   it('enables UTF-8 output, TLS 1.2, reads the configured auth.json, and requests the usage endpoint', () => {
-    const command = buildUsageCommand('C:\\Users\\me\\.local\\share\\opencode\\auth.json')
+    const command = buildUsageCommand(options())
     expect(command).toContain('[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)')
     expect(command).toContain('[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12')
     expect(command).toContain("'C:\\Users\\me\\.local\\share\\opencode\\auth.json'")
@@ -44,14 +56,19 @@ describe('buildUsageCommand', () => {
     expect(command).toContain('ConvertTo-Json -Compress -Depth 5')
   })
 
+  it('uses the configured API URL', () => {
+    const command = buildUsageCommand(options({ apiUrl: 'https://example.test/usage' }))
+    expect(command).toContain("'https://example.test/usage'")
+  })
+
   it('escapes a single quote in the auth path', () => {
-    const command = buildUsageCommand("C:\\Users\\o'brien\\auth.json")
+    const command = buildUsageCommand(options({ authJsonPath: "C:\\Users\\o'brien\\auth.json" }))
     expect(command).toContain("'C:\\Users\\o''brien\\auth.json'")
   })
 })
 
 describe('runUsageFetch', () => {
-  it('spawns powershell.exe with the command as one argv element and collects stdout', async () => {
+  it('spawns the configured powershell.exe with the command as one argv element and collects stdout', async () => {
     const specs: unknown[] = []
     const subprocess: GoUsageSubprocess = {
       spawn: (spec) => {
@@ -62,12 +79,15 @@ describe('runUsageFetch', () => {
         }
       },
     }
-    const result = await runUsageFetch(subprocess, 'the-command')
+    const opts = options()
+    const result = await runUsageFetch(subprocess, opts)
     expect(result).toEqual({ exitCode: 0, stdout: USAGE_JSON, stderr: '' })
     const spec = specs[0] as { argv: string[]; cwd: string; stdio: unknown; graceMs: number }
     expect(spec.argv[0]).toBe('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
     expect(spec.argv).toContain('-Command')
-    expect(spec.argv).toContain('the-command')
+    const command = spec.argv[spec.argv.indexOf('-Command') + 1] ?? ''
+    expect(command).toContain('https://opencode.ai/zen/go/v1/usage')
+    expect(command).toContain("'C:\\Users\\me\\.local\\share\\opencode\\auth.json'")
     expect(spec.cwd).toBe('C:\\')
     expect(spec.graceMs).toBe(3000)
     expect(spec.stdio).toEqual({
@@ -81,13 +101,13 @@ describe('runUsageFetch', () => {
     const subprocess: GoUsageSubprocess = {
       spawn: () => ({ done: Promise.reject(new Error('spawn failed')), collected: {} }),
     }
-    await expect(runUsageFetch(subprocess, 'cmd')).rejects.toThrow('spawn failed')
+    await expect(runUsageFetch(subprocess, options())).rejects.toThrow('spawn failed')
   })
 })
 
 describe('fetchGoUsage', () => {
   it('returns the parsed usage buckets on a successful fetch', async () => {
-    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: USAGE_JSON, stderr: '' }), 'auth.json')
+    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: USAGE_JSON, stderr: '' }), options())
     expect(result).toEqual({
       ok: true,
       usage: {
@@ -101,30 +121,72 @@ describe('fetchGoUsage', () => {
   it('reports a nonzero exit with the stderr detail', async () => {
     const result = await fetchGoUsage(
       stubSubprocess({ exitCode: 1, stdout: '', stderr: 'Invoke-RestMethod failed' }),
-      'auth.json',
+      options(),
     )
     expect(result).toEqual({ ok: false, error: expect.stringContaining('Invoke-RestMethod failed') })
   })
 
   it('reports empty output without an exit code', async () => {
-    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '  ', stderr: '' }), 'auth.json')
+    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '  ', stderr: '' }), options())
     expect(result).toEqual({ ok: false, error: expect.stringContaining('no output') })
   })
 
   it('reports non-JSON output', async () => {
-    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '<html>', stderr: '' }), 'auth.json')
+    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '<html>', stderr: '' }), options())
     expect(result).toEqual({ ok: false, error: expect.stringContaining('not JSON') })
   })
 
   it('reports a response missing the usage buckets', async () => {
-    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '{"other": 1}', stderr: '' }), 'auth.json')
+    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: '{"other": 1}', stderr: '' }), options())
     expect(result).toEqual({ ok: false, error: expect.stringContaining('missing rolling/weekly/monthly') })
   })
 
   it('reports a response with a malformed bucket', async () => {
     const bad = JSON.stringify({ usage: { rolling: { percent: 'x' }, weekly: {}, monthly: null } })
-    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: bad, stderr: '' }), 'auth.json')
+    const result = await fetchGoUsage(stubSubprocess({ exitCode: 0, stdout: bad, stderr: '' }), options())
     expect(result).toEqual({ ok: false, error: expect.stringContaining('missing rolling/weekly/monthly') })
+  })
+})
+
+describe('resolveFetchOptions', () => {
+  it('applies configured values when provided', () => {
+    const resolved = resolveFetchOptions({
+      authJsonPath: 'C:\\custom\\auth.json',
+      apiUrl: 'https://example.test/usage',
+      powershellExe: 'C:\\pwsh.exe',
+      timeoutSec: 30,
+    })
+    expect(resolved).toEqual({
+      authJsonPath: 'C:\\custom\\auth.json',
+      apiUrl: 'https://example.test/usage',
+      powershellExe: 'C:\\pwsh.exe',
+      timeoutSec: 30,
+    })
+  })
+
+  it('falls back to environment defaults for omitted fields', () => {
+    const previous = { ...process.env }
+    process.env.USERPROFILE = 'C:\\Users\\tester'
+    try {
+      const resolved = resolveFetchOptions({})
+      expect(resolved.authJsonPath).toBe('C:/Users/tester/.local/share/opencode/auth.json')
+      expect(resolved.apiUrl).toBe('https://opencode.ai/zen/go/v1/usage')
+      expect(resolved.powershellExe).toBe('C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe')
+      expect(resolved.timeoutSec).toBe(15)
+    } finally {
+      process.env = previous
+    }
+  })
+
+  it('throws when no authJsonPath is configured and no profile dir exists', () => {
+    const previous = { ...process.env }
+    delete process.env.USERPROFILE
+    delete process.env.HOME
+    try {
+      expect(() => resolveFetchOptions({})).toThrow(/USERPROFILE/)
+    } finally {
+      process.env = previous
+    }
   })
 })
 
@@ -207,7 +269,7 @@ describe('host apply', () => {
   it('registers the /go-usage/api prefix route', async () => {
     const { ctx, routes, disposers } = mountApply()
     const { apply } = await import('../src/index.ts')
-    apply(ctx as never)
+    apply(ctx as never, {})
     expect(routes).toHaveLength(1)
     expect(routes[0]!.kind).toBe('prefix')
     expect(routes[0]!.path).toBe('/go-usage/api')
@@ -217,7 +279,7 @@ describe('host apply', () => {
   it('answers a trusted GET /go-usage/api/usage with the usage payload', async () => {
     const { ctx, routes } = mountApply()
     const { apply } = await import('../src/index.ts')
-    apply(ctx as never)
+    apply(ctx as never, { authJsonPath: 'C:\\auth.json' })
     const state = { status: 0, headers: {} as Record<string, string>, body: '' }
     const res = {
       writeHead: (status: number, headers: Record<string, string>) => { state.status = status; state.headers = headers },
@@ -235,7 +297,7 @@ describe('host apply', () => {
   it('rejects an untrusted host with 403', async () => {
     const { ctx, routes } = mountApply()
     const { apply } = await import('../src/index.ts')
-    apply(ctx as never)
+    apply(ctx as never, { authJsonPath: 'C:\\auth.json' })
     const state = { status: 0, body: '' }
     const res = {
       writeHead: (status: number) => { state.status = status },
@@ -252,7 +314,7 @@ describe('host apply', () => {
   it('rejects a non-GET/POST method with 405', async () => {
     const { ctx, routes } = mountApply()
     const { apply } = await import('../src/index.ts')
-    apply(ctx as never)
+    apply(ctx as never, { authJsonPath: 'C:\\auth.json' })
     const state = { status: 0, body: '' }
     const res = {
       writeHead: (status: number) => { state.status = status },
@@ -269,7 +331,7 @@ describe('host apply', () => {
   it('answers an unknown sub-path with 404', async () => {
     const { ctx, routes } = mountApply()
     const { apply } = await import('../src/index.ts')
-    apply(ctx as never)
+    apply(ctx as never, { authJsonPath: 'C:\\auth.json' })
     const state = { status: 0, body: '' }
     const res = {
       writeHead: (status: number) => { state.status = status },
@@ -291,6 +353,6 @@ describe('host apply', () => {
       effect: () => {},
       get: () => undefined,
     }
-    expect(() => apply(ctx as never)).toThrow(/subprocess/)
+    expect(() => apply(ctx as never, { authJsonPath: 'C:\\auth.json' })).toThrow(/subprocess/)
   })
 })

@@ -50,6 +50,27 @@ dsh plugin --profile web add link:<本仓库绝对路径>
 
 重启 web 服务（`dsh web`），查看页面**右下角**。
 
+## 配置
+
+所有配置项均可选，默认值开箱即用。如需覆盖，在 profile 的 `cordis.patch.yml` 中给插件行添加 `config:` 块：
+
+```yaml
+- id: go-usage
+  name: 'dsh-go-usage'
+  config:
+    authJsonPath: 'C:\Users\me\.local\share\opencode\auth.json'
+    apiUrl: 'https://opencode.ai/zen/go/v1/usage'
+    powershellExe: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    timeoutSec: 15
+```
+
+| 键 | 类型 | 默认值 | 含义 |
+| --- | --- | --- | --- |
+| `authJsonPath` | string | `$USERPROFILE/.local/share/opencode/auth.json`（或 `$HOME`） | 含 `opencode-go` API key 的 opencode `auth.json` 绝对路径。 |
+| `apiUrl` | string | `https://opencode.ai/zen/go/v1/usage` | OpenCode GO 用量 API 端点。 |
+| `powershellExe` | string | `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` | 取数运行的 PowerShell 可执行文件。 |
+| `timeoutSec` | number | `15` | API 请求超时秒数（1–120）。 |
+
 ## 工作原理
 
 - **host 半** 在 DSH web 服务器上注册受信任围栏保护的 JSON 路由 `/go-usage/api/usage`。每次请求运行一次 `powershell.exe`：读取本地 opencode `auth.json` 中的 `opencode-go` API key，调用 `https://opencode.ai/zen/go/v1/usage`，返回解析后的用量桶。显式启用 TLS 1.2，因为 Windows PowerShell 5.1 默认使用旧版 TLS。

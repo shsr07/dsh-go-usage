@@ -52,6 +52,27 @@ dsh plugin --profile web add link:<absolute-path-to-this-checkout>
 
 Restart the web service (`dsh web`), then look at the **bottom-right corner** of the page.
 
+## Configuration
+
+All settings are optional; the defaults work out of the box. Add a `config:` block to the plugin row in your profile's `cordis.patch.yml` to override:
+
+```yaml
+- id: go-usage
+  name: 'dsh-go-usage'
+  config:
+    authJsonPath: 'C:\Users\me\.local\share\opencode\auth.json'
+    apiUrl: 'https://opencode.ai/zen/go/v1/usage'
+    powershellExe: 'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe'
+    timeoutSec: 15
+```
+
+| Key | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `authJsonPath` | string | `$USERPROFILE/.local/share/opencode/auth.json` (or `$HOME`) | Absolute path of the opencode `auth.json` containing the `opencode-go` API key. |
+| `apiUrl` | string | `https://opencode.ai/zen/go/v1/usage` | The OpenCode GO usage API endpoint. |
+| `powershellExe` | string | `C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe` | The PowerShell executable the fetch runs. |
+| `timeoutSec` | number | `15` | API request timeout in seconds (1–120). |
+
 ## How it works
 
 - The **host half** registers a fenced JSON route `/go-usage/api/usage` on the DSH web server. Each request runs one `powershell.exe` invocation: it reads the `opencode-go` API key from the local opencode `auth.json`, calls `https://opencode.ai/zen/go/v1/usage`, and returns the parsed buckets. TLS 1.2 is enabled explicitly because Windows PowerShell 5.1 defaults to older TLS.

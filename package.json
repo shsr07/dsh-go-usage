@@ -49,6 +49,9 @@
     "README.zh.md",
     "LICENSE"
   ],
+  "dependencies": {
+    "schemastery": "3.18.0"
+  },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.0.1",
     "@testing-library/dom": "10.4.0",

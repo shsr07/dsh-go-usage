@@ -20,6 +20,18 @@ const GRACE_MS = 3000
 /** Stdio collection caps: the usage payload is a few hundred bytes at most. */
 const OUTPUT_CAP_BYTES = 65536
 
+/** Fetch options resolved from plugin config (defaults applied by the schema). */
+export interface GoUsageFetchOptions {
+  /** Absolute path of the opencode auth.json to read. */
+  readonly authJsonPath: string
+  /** The OpenCode GO usage API URL. */
+  readonly apiUrl: string
+  /** The PowerShell executable to run. */
+  readonly powershellExe: string
+  /** The API request timeout in seconds. */
+  readonly timeoutSec: number
+}
+
 /** Minimal structural face of the subprocess service this plugin uses. */
 export interface GoUsageSubprocess {
   spawn(spec: {
@@ -51,35 +63,37 @@ const ENCODING_PREAMBLE =
 
 /**
  * One PowerShell invocation that reads the opencode-go API key from the
- * user's `auth.json`, fetches `/zen/go/v1/usage`, and prints the JSON. TLS 1.2
+ * user's `auth.json`, fetches the usage API, and prints the JSON. TLS 1.2
  * is enabled explicitly because Windows PowerShell 5.1 defaults to
  * TLS 1.0/1.1 and the endpoint rejects those.
- * @param authJsonPath - absolute path of the opencode auth.json to read.
+ * @param options - resolved fetch options (auth path, API URL, executable).
  * @returns the PowerShell command line.
  */
-export function buildUsageCommand(authJsonPath: string): string {
-  const quoted = authJsonPath.replaceAll("'", "''")
+export function buildUsageCommand(options: GoUsageFetchOptions): string {
+  const quoted = options.authJsonPath.replaceAll("'", "''")
+  const apiQuoted = options.apiUrl.replaceAll("'", "''")
   return [
     ENCODING_PREAMBLE,
     '[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12',
     `$k = (Get-Content '${quoted}' -Raw | ConvertFrom-Json).'opencode-go'.key`,
     "if (-not $k) { throw 'opencode-go key not found' }",
-    "(Invoke-RestMethod -Uri 'https://opencode.ai/zen/go/v1/usage' -Headers @{Authorization=\"Bearer $k\"} -TimeoutSec 15) | ConvertTo-Json -Compress -Depth 5",
+    `(Invoke-RestMethod -Uri '${apiQuoted}' -Headers @{Authorization="Bearer $k"} -TimeoutSec ${options.timeoutSec}) | ConvertTo-Json -Compress -Depth 5`,
   ].join('; ')
 }
 
 /**
  * Spawn one PowerShell fetch and settle with its collected stdout/stderr.
  * @param subprocess - the mounted subprocess service.
- * @param command - the PowerShell command line to run.
+ * @param options - resolved fetch options (executable, auth path, API URL).
  * @returns exit code, stdout, and stderr after the process tree exits.
  */
 export async function runUsageFetch(
   subprocess: GoUsageSubprocess,
-  command: string,
+  options: GoUsageFetchOptions,
 ): Promise<{ exitCode: number | null; stdout: string; stderr: string }> {
+  const command = buildUsageCommand(options)
   const handle = subprocess.spawn({
-    argv: [POWERSHELL_EXE, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command],
+    argv: [options.powershellExe, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', command],
     cwd: 'C:\\',
     stdio: {
       stdin: 'ignore',
@@ -97,15 +111,15 @@ export async function runUsageFetch(
 /**
  * Fetch and parse the current OpenCode GO usage buckets.
  * @param subprocess - the mounted subprocess service.
- * @param authJsonPath - absolute path of the opencode auth.json to read.
+ * @param options - resolved fetch options (auth path, API URL, executable).
  * @returns the usage snapshot, or a failure reason.
  */
 export async function fetchGoUsage(
   subprocess: GoUsageSubprocess,
-  authJsonPath: string,
+  options: GoUsageFetchOptions,
 ): Promise<GoUsageResponse> {
   try {
-    const { exitCode, stdout, stderr } = await runUsageFetch(subprocess, buildUsageCommand(authJsonPath))
+    const { exitCode, stdout, stderr } = await runUsageFetch(subprocess, options)
     const text = stdout.trim()
     if (exitCode !== 0 || text.length === 0) {
       const detail = stderr.trim() || 'no output'

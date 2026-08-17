@@ -12,6 +12,7 @@
  */
 
 import type { Context } from './context-types.ts'
+import Schema from 'schemastery'
 import { isTrustedApiRequest } from './trust-fence.ts'
 import { writeError, writeJson } from './wire.ts'
 import { fetchGoUsage } from './fetch.ts'
@@ -19,7 +20,7 @@ import type { GoUsageResponse } from './types.ts'
 
 export * from './types.ts'
 export { buildUsageCommand, fetchGoUsage, runUsageFetch, POWERSHELL_EXE } from './fetch.ts'
-export type { GoUsageSubprocess } from './fetch.ts'
+export type { GoUsageFetchOptions, GoUsageSubprocess } from './fetch.ts'
 export { isTrustedApiRequest } from './trust-fence.ts'
 export { writeError, writeJson } from './wire.ts'
 export type { GoUsageWebRoute, GoUsageWebServer, GoUsageLoader } from './context-types.ts'
@@ -36,6 +37,48 @@ export const API_PATH = '/go-usage/api'
 /** Default location of the opencode auth file, relative to the user profile dir. */
 export const DEFAULT_AUTH_SUBPATH = '.local/share/opencode/auth.json'
 
+/** Default OpenCode GO usage API endpoint. */
+export const DEFAULT_API_URL = 'https://opencode.ai/zen/go/v1/usage'
+
+/** Default PowerShell executable (Windows PowerShell 5.1). */
+export const DEFAULT_POWERSHELL_EXE = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe'
+
+/** Default API request timeout in seconds. */
+export const DEFAULT_TIMEOUT_SEC = 15
+
+/** Plugin configuration, validated at the configuration boundary. */
+export interface Config {
+  /**
+   * Absolute path of the opencode `auth.json` to read. Defaults to
+   * `$USERPROFILE/.local/share/opencode/auth.json` on Windows (or
+   * `$HOME` on POSIX).
+   */
+  authJsonPath?: string
+  /** The OpenCode GO usage API endpoint. */
+  apiUrl?: string
+  /** The PowerShell executable the fetch runs. */
+  powershellExe?: string
+  /** The API request timeout in seconds. */
+  timeoutSec?: number
+}
+
+/** Schemastery schema: defaults are filled when the row omits a field. */
+export const Config: Schema<Config> = Schema.object({
+  authJsonPath: Schema.string(),
+  apiUrl: Schema.string(),
+  powershellExe: Schema.string(),
+  timeoutSec: Schema.number().min(1).max(120),
+})
+
+/** The user profile directory, from the environment. */
+function userProfileDir(): string {
+  const value = process.env.USERPROFILE ?? process.env.HOME
+  if (value === undefined || value === '') {
+    throw new Error('dsh-go-usage: USERPROFILE/HOME is unset — cannot locate the opencode auth.json')
+  }
+  return value
+}
+
 /** The connection row's resolved trustedHosts (live read; the /api fence's own list). */
 function trustedHostsOf(ctx: Context): string[] {
   for (const entry of ctx.loader.entries()) {
@@ -47,17 +90,29 @@ function trustedHostsOf(ctx: Context): string[] {
   return []
 }
 
-/** The user profile directory, from the environment. */
-function userProfileDir(): string {
-  const value = process.env.USERPROFILE ?? process.env.HOME
-  if (value === undefined || value === '') {
-    throw new Error('dsh-go-usage: USERPROFILE/HOME is unset — cannot locate the opencode auth.json')
+/**
+ * Resolve the fetch options from plugin config, applying the environment
+ * defaults for fields the row omitted.
+ * @param config - the validated plugin config (defaults already applied by the schema).
+ * @returns the resolved fetch options.
+ */
+export function resolveFetchOptions(config: Config): {
+  authJsonPath: string
+  apiUrl: string
+  powershellExe: string
+  timeoutSec: number
+} {
+  const authJsonPath = config.authJsonPath ?? `${userProfileDir().replaceAll('\\', '/')}/${DEFAULT_AUTH_SUBPATH}`
+  return {
+    authJsonPath,
+    apiUrl: config.apiUrl ?? DEFAULT_API_URL,
+    powershellExe: config.powershellExe ?? DEFAULT_POWERSHELL_EXE,
+    timeoutSec: config.timeoutSec ?? DEFAULT_TIMEOUT_SEC,
   }
-  return value
 }
 
 /** Plugin body. */
-export function apply(ctx: Context): void {
+export function apply(ctx: Context, config: Config): void {
   // Read the connection row's trustedHosts live on every request so config
   // changes are honored without a plugin reload (matches the /api fence).
   const fence = (req: Parameters<typeof isTrustedApiRequest>[0]): boolean =>
@@ -70,12 +125,7 @@ export function apply(ctx: Context): void {
     throw new Error('dsh-go-usage: the subprocess service is not mounted; the usage fetch cannot run')
   }
 
-  let authJsonPath: string
-  try {
-    authJsonPath = `${userProfileDir().replaceAll('\\', '/')}/${DEFAULT_AUTH_SUBPATH}`
-  } catch (error) {
-    throw error
-  }
+  const options = resolveFetchOptions(config)
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
@@ -94,7 +144,7 @@ export function apply(ctx: Context): void {
         writeError(res, 404, 'not-found', 'unknown go-usage API method')
         return
       }
-      void fetchGoUsage(subprocess, authJsonPath).then(
+      void fetchGoUsage(subprocess, options).then(
         (result: GoUsageResponse) => writeJson(res, 200, result),
         (error: unknown) => writeError(res, 500, 'internal', error instanceof Error ? error.message : String(error)),
       )
